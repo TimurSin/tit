@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Многослойный товар - Пример</title>
+  
+  <!-- Подключаем Three.js (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.151.3/build/three.min.js"></script>
+  
+  <!-- Базовые стили страницы -->
+  <style>
+    * {
+      margin: 0; 
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* Прячем скролл, если хотим фиксированный фон */
+      font-family: sans-serif;
+      background: #000; /* Фон страницы (на случай если WebGL не прогрузится) */
+    }
+    /* Контейнер для WebGL-рендера */
+    #bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1; /* Фоновый слой под текстом */
+    }
+    /* Блок с передним планом */
+    .front-layer {
+      position: relative;
+      z-index: 2; /* Слой над WebGL */
+      width: 100%;
+      min-height: 100vh; /* Чтобы занимал весь экран */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      color: #fff; /* Белый цвет для контраста */
+      padding: 2rem;
+    }
+    /* Оформление карточки товара */
+    .product-card {
+      background: rgba(0, 0, 0, 0.5); 
+      border: 1px solid #666;
+      border-radius: 8px;
+      max-width: 500px;
+      padding: 2rem;
+    }
+    .product-title {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .product-description {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    .product-price {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+      color: #ffd700; /* Золотистый для цены */
+    }
+    .buy-button {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      background-color: #ff5722;
+      color: #fff;
+      text-decoration: none;
+      font-size: 1rem;
+      transition: background-color 0.3s ease;
+    }
+    .buy-button:hover {
+      background-color: #e64a19;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Контейнер для 3D-сцены -->
+  <div id="bg-canvas"></div>
+  
+  <!-- Передний план с HTML-текстом -->
+  <div class="front-layer">
+    <div class="product-card">
+      <h1 class="product-title">Пример Товара</h1>
+      <p class="product-description">
+        Это просто демонстрационный продукт, чтобы показать, как HTML-текст может накладываться на WebGL-фон.
+        Описание доступно поисковым системам благодаря тому, что оно в HTML.
+      </p>
+      <div class="product-price">Цена: 9 999 руб.</div>
+      <a class="buy-button" href="#buy">Купить</a>
+    </div>
+  </div>
+  
+  <script>
+    // Инициализация Three.js
+    let scene, camera, renderer;
+    let planeMesh;
+    
+    init();
+    animate();
+    
+    function init() {
+      // Создаем сцену
+      scene = new THREE.Scene();
+
+      // Создаем камеру
+      camera = new THREE.PerspectiveCamera(
+        45,               // угол обзора
+        window.innerWidth / window.innerHeight, // соотношение сторон
+        0.1,              // ближняя плоскость
+        1000              // дальняя плоскость
+      );
+      camera.position.z = 5; // отдаляем камеру
+
+      // Создаем рендерер
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById('bg-canvas').appendChild(renderer.domElement);
+
+      // Подгружаем текстуру для фона (замените URL на свой)
+      const textureLoader = new THREE.TextureLoader();
+      const backgroundTexture = textureLoader.load(
+        'https://i.ibb.co/7R6yXbZ/product-demo.jpg' // Любая демонстрационная картинка
+      );
+      
+      // Создаем плоскость и накладываем текстуру
+      const geometry = new THREE.PlaneGeometry(16, 9); // Пропорции 16:9
+      const material = new THREE.MeshBasicMaterial({ map: backgroundTexture });
+      planeMesh = new THREE.Mesh(geometry, material);
+      
+      // Добавляем плоскость в сцену
+      scene.add(planeMesh);
+
+      // Подгоняем размер плоскости под экран
+      resizePlane();
+
+      // Обрабатываем изменение размера окна
+      window.addEventListener('resize', onWindowResize, false);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Легкий параллакс-эффект: смещение камеры 
+      // (можно усложнить, реагируя на скролл или движение мыши)
+      camera.position.x = Math.sin(Date.now() * 0.0005) * 0.5;
+      camera.position.y = Math.sin(Date.now() * 0.0003) * 0.5;
+      camera.lookAt(scene.position);
+
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      resizePlane();
+    }
+    
+    // Функция подгонки геометрии плоскости под текущие пропорции окна
+    function resizePlane() {
+      const viewSize = getViewSize();
+      planeMesh.scale.set(viewSize.width / 16, viewSize.height / 9, 1);
+    }
+    
+    // Вычисляем реальный размер видимой зоны в "единицах" Three.js
+    function getViewSize() {
+      const distance = camera.position.z;
+      const vFov = (camera.fov * Math.PI) / 180; 
+      const height = 2 * Math.tan(vFov / 2) * distance;
+      const width = height * camera.aspect;
+      return { width, height };
+    }
+  </script>
+</body>
+</html>
+
